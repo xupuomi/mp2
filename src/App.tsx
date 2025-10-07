@@ -7,7 +7,7 @@ import './App.css';
 
 function App() {
   return (
-    <Router basename="/movieExplorer">
+    <Router basename="/mp2">
       <div className="App">
         <nav className="app-nav">
           <div className="nav-brand">
