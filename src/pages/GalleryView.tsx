@@ -70,10 +70,9 @@ const GalleryView: React.FC = () => {
       setLoading(false);
       return;
     }
-    const sortedResults =
-      hasGenre || selectedMediaType === "all"
-        ? results
-        : sortResults(results, sortBy);
+    // Always apply the requested sort order to the fetched results so
+    // sorting (e.g. title A-Z) works when a genre is selected.
+    const sortedResults = sortResults(results, sortBy);
 
     console.log("Fetched results:", {
       genre: selectedGenre,
