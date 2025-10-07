@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Movie, TVShow, MediaType } from '../types/tmdb';
 import { getTrendingAll, getTrendingMovies, getTrendingTVShows, discoverMovies, discoverTVShows } from '../api/tmdb';
@@ -17,11 +17,7 @@ const GalleryView: React.FC = () => {
   const [selectedMediaType, setSelectedMediaType] = useState<MediaType | 'all'>('all');
   const [sortBy, setSortBy] = useState('popularity.desc');
 
-  useEffect(() => {
-    fetchTrendingItems();
-  }, [selectedMediaType, selectedGenre, sortBy]);
-
-  const fetchTrendingItems = async () => {
+  const fetchTrendingItems = useCallback(async () => {
   setLoading(true);
   setError(null);
 
@@ -99,8 +95,11 @@ const GalleryView: React.FC = () => {
   } finally {
     setLoading(false);
   }
-};
+}, [selectedGenre, selectedMediaType, sortBy]);
 
+  useEffect(() => {
+    fetchTrendingItems();
+  }, [fetchTrendingItems]);
 
   const sortResults = (results: (Movie | TVShow)[], sortOrder: string) => {
     return [...results].sort((a, b) => {

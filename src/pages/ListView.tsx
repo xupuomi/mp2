@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Movie, TVShow, MediaType, TMDBResponse } from '../types/tmdb';
 import { searchMulti, searchMovies, searchTVShows } from '../api/tmdb';
@@ -20,22 +20,7 @@ const ListView: React.FC = () => {
   const sortBy = searchParams.get('sort') || 'popularity.desc';
   const mediaType = searchParams.get('type') as MediaType | 'all' || 'all';
 
-  useEffect(() => {
-    if (query) {
-      performSearch();
-    } else {
-      setResults([]);
-      setTotalPages(0);
-    }
-  }, [query, currentPage, mediaType]);
-
-  useEffect(() => {
-    if (results.length > 0) {
-      sortResults();
-    }
-  }, [sortBy]);
-
-  const performSearch = async () => {
+  const performSearch = useCallback(async () => {
     setLoading(true);
     setError(null);
     
@@ -61,9 +46,9 @@ const ListView: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [query, currentPage, mediaType]);
 
-  const sortResults = () => {
+  const sortResults = useCallback(() => {
     const sortedResults = [...results].sort((a, b) => {
       switch (sortBy) {
         case 'popularity.desc':
@@ -95,7 +80,22 @@ const ListView: React.FC = () => {
       }
     });
     setResults(sortedResults);
-  };
+  }, [results, sortBy]);
+
+  useEffect(() => {
+    if (query.trim()) {
+      performSearch();
+    } else {
+      setResults([]);
+      setTotalPages(0);
+    }
+  }, [query, currentPage, mediaType, performSearch]);
+
+  useEffect(() => {
+    if (results.length > 0) {
+      sortResults();
+    }
+  }, [results.length, sortBy, sortResults]);
 
   const handleSearch = (newQuery: string) => {
     setSearchParams(prev => {

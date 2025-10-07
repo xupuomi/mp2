@@ -6,7 +6,6 @@ import {
   MovieDetails,
   TVShowDetails,
   GenreResponse,
-  MediaType,
   SearchParams
 } from '../types/tmdb';
 

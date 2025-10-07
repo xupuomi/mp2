@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { MovieDetails, TVShowDetails, MediaType, Movie, TVShow } from "../types/tmdb";
 import { getMovieDetails, getTVShowDetails, getImageUrl } from "../api/tmdb";
@@ -27,7 +27,7 @@ const DetailView: React.FC = () => {
   const movieList = state?.movieList || [];
   const currentIndex = state?.currentIndex ?? -1;
 
-  const fetchDetails = async () => {
+  const fetchDetails = useCallback(async () => {
     console.log("fetchDetails called with:", { itemId, mediaType });
     setLoading(true);
     setError(null);
@@ -48,13 +48,13 @@ const DetailView: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [itemId, mediaType]);
 
   useEffect(() => {
     if (itemId > 0 && mediaType) {
       fetchDetails();
     }
-  }, [itemId, mediaType]);
+  }, [itemId, mediaType, fetchDetails]);
 
   const handleBack = () => {
     navigate(-1);
