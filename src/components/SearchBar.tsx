@@ -15,9 +15,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      if (query.trim()) {
-        onSearch(query.trim());
-      }
+      onSearch(query.trim());
     }, 300);
 
     return () => clearTimeout(timeoutId);
@@ -32,6 +30,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
 
   const handleClear = () => {
     setQuery('');
+    onSearch('');
   };
 
   return (

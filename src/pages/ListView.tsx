@@ -9,8 +9,9 @@ import CardItem from '../components/CardItem';
 const ListView: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  
+
   const [results, setResults] = useState<(Movie | TVShow)[]>([]);
+  const [rawResults, setRawResults] = useState<(Movie | TVShow)[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [totalPages, setTotalPages] = useState(0);
@@ -18,15 +19,14 @@ const ListView: React.FC = () => {
 
   const query = searchParams.get('q') || '';
   const sortBy = searchParams.get('sort') || 'popularity.desc';
-  const mediaType = searchParams.get('type') as MediaType | 'all' || 'all';
-
+  const mediaType = (searchParams.get('type') as MediaType | 'all') || 'all';
   const performSearch = useCallback(async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       let response: TMDBResponse<Movie | TVShow>;
-      
+
       switch (mediaType) {
         case 'movie':
           response = await searchMovies(query, currentPage);
@@ -37,19 +37,38 @@ const ListView: React.FC = () => {
         default:
           response = await searchMulti(query, currentPage);
       }
-      
-      setResults(response.results);
+
+      // store raw results and total pages
+      setRawResults(response.results);
       setTotalPages(response.total_pages);
     } catch (err) {
-      setError('Failed to search. Please try again.');
       console.error('Search error:', err);
+      setError('Failed to search. Please try again.');
+      setRawResults([]);
+      setTotalPages(0);
     } finally {
       setLoading(false);
     }
   }, [query, currentPage, mediaType]);
 
-  const sortResults = useCallback(() => {
-    const sortedResults = [...results].sort((a, b) => {
+  useEffect(() => {
+    if (query) {
+      performSearch();
+    } else {
+      setRawResults([]);
+      setResults([]);
+      setTotalPages(0);
+    }
+  }, [query, currentPage, mediaType, performSearch]);
+
+  // Sort the rawResults into `results` whenever rawResults or sortBy change.
+  useEffect(() => {
+    if (!rawResults || rawResults.length === 0) {
+      setResults([]);
+      return;
+    }
+
+    const sorted = [...rawResults].sort((a, b) => {
       switch (sortBy) {
         case 'popularity.desc':
           return b.popularity - a.popularity;
@@ -59,49 +78,39 @@ const ListView: React.FC = () => {
           return b.vote_average - a.vote_average;
         case 'vote_average.asc':
           return a.vote_average - b.vote_average;
-        case 'release_date.desc':
+        case 'release_date.desc': {
           const dateA = 'release_date' in a ? a.release_date : a.first_air_date;
           const dateB = 'release_date' in b ? b.release_date : b.first_air_date;
           return new Date(dateB || '').getTime() - new Date(dateA || '').getTime();
-        case 'release_date.asc':
-          const dateC = 'release_date' in a ? a.release_date : a.first_air_date;
-          const dateD = 'release_date' in b ? b.release_date : b.first_air_date;
-          return new Date(dateC || '').getTime() - new Date(dateD || '').getTime();
-        case 'title.asc':
+        }
+        case 'release_date.asc': {
+          const dateA = 'release_date' in a ? a.release_date : a.first_air_date;
+          const dateB = 'release_date' in b ? b.release_date : b.first_air_date;
+          return new Date(dateA || '').getTime() - new Date(dateB || '').getTime();
+        }
+        case 'title.asc': {
           const titleA = 'title' in a ? a.title : a.name;
           const titleB = 'title' in b ? b.title : b.name;
           return titleA.localeCompare(titleB);
-        case 'title.desc':
-          const titleC = 'title' in a ? a.title : a.name;
-          const titleD = 'title' in b ? b.title : b.name;
-          return titleD.localeCompare(titleC);
+        }
+        case 'title.desc': {
+          const titleA = 'title' in a ? a.title : a.name;
+          const titleB = 'title' in b ? b.title : b.name;
+          return titleB.localeCompare(titleA);
+        }
         default:
           return 0;
       }
     });
-    setResults(sortedResults);
-  }, [results, sortBy]);
 
-  useEffect(() => {
-    if (query.trim()) {
-      performSearch();
-    } else {
-      setResults([]);
-      setTotalPages(0);
-    }
-  }, [query, currentPage, mediaType, performSearch]);
-
-  useEffect(() => {
-    if (results.length > 0) {
-      sortResults();
-    }
-  }, [results.length, sortBy, sortResults]);
+    setResults(sorted);
+  }, [rawResults, sortBy]);
 
   const handleSearch = (newQuery: string) => {
     setSearchParams(prev => {
       const newParams = new URLSearchParams(prev);
       newParams.set('q', newQuery);
-      newParams.delete('page'); 
+      newParams.delete('page'); // Reset to first page
       return newParams;
     });
     setCurrentPage(1);
@@ -123,7 +132,7 @@ const ListView: React.FC = () => {
       } else {
         newParams.set('type', newMediaType);
       }
-      newParams.delete('page');
+      newParams.delete('page'); // Reset to first page
       return newParams;
     });
     setCurrentPage(1);
@@ -132,11 +141,7 @@ const ListView: React.FC = () => {
   const handleCardClick = (id: number, type: MediaType) => {
     const currentIndex = results.findIndex(item => item.id === id);
     navigate(`/details/${type}/${id}`, {
-      state: {
-        movieList: results,
-        currentIndex: currentIndex,
-        mediaType: type
-      }
+      state: { movieList: results, currentIndex, mediaType: type }
     });
   };
 
@@ -153,52 +158,49 @@ const ListView: React.FC = () => {
   return (
     <div className="list-view">
       <div className="search-header">
-        <SearchBar 
-          onSearch={handleSearch} 
+        <SearchBar
+          onSearch={handleSearch}
           initialValue={query}
           placeholder="Search movies and TV shows..."
         />
-        
+
         <div className="search-controls">
           <div className="media-type-filter">
             <label htmlFor="media-type-filter">Type:</label>
-            <select 
+            <select
               id="media-type-filter"
               name="mediaType"
-              value={mediaType} 
-              onChange={(e) => handleMediaTypeChange(e.target.value as MediaType | 'all')}
+              value={mediaType}
+              onChange={(e) =>
+                handleMediaTypeChange(e.target.value as MediaType | 'all')
+              }
             >
               <option value="all">All</option>
               <option value="movie">Movies</option>
               <option value="tv">TV Shows</option>
             </select>
           </div>
-          
+
           {results.length > 0 && (
-            <SortControls 
-              sortBy={sortBy} 
-              onSortChange={handleSortChange}
-            />
+            <SortControls sortBy={sortBy} onSortChange={handleSortChange} />
           )}
         </div>
       </div>
 
       {loading && <div className="loading">Searching...</div>}
-      
+
       {error && <div className="error">{error}</div>}
-      
+
       {query && !loading && results.length === 0 && !error && (
-        <div className="no-results">
-          No results found for "{query}"
-        </div>
+        <div className="no-results">No results found for "{query}"</div>
       )}
-      
+
       {results.length > 0 && (
         <>
           <div className="results-info">
             Found {results.length} results {query && `for "${query}"`}
           </div>
-          
+
           <div className="results-grid">
             {results.map((item) => (
               <CardItem
@@ -209,21 +211,21 @@ const ListView: React.FC = () => {
               />
             ))}
           </div>
-          
+
           {totalPages > 1 && (
             <div className="pagination">
-              <button 
+              <button
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
               >
                 Previous
               </button>
-              
+
               <span className="page-info">
                 Page {currentPage} of {totalPages}
               </span>
-              
-              <button 
+
+              <button
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === totalPages}
               >
